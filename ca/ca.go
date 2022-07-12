@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smallstep/certificates/acme"
 	acmeAPI "github.com/smallstep/certificates/acme/api"
+	mqttAPI "github.com/smallstep/certificates/mqtt_acme/api"
 	acmeNoSQL "github.com/smallstep/certificates/acme/db/nosql"
 	"github.com/smallstep/certificates/api"
 	"github.com/smallstep/certificates/authority"
@@ -206,6 +207,13 @@ func (ca *CA) Init(cfg *config.Config) (*CA, error) {
 		mux.Route("/2.0/acme", func(r chi.Router) {
 			acmeAPI.Route(r)
 		})
+		// Add MQTT ACME Router
+		// connect to broker
+		// subscribe to endpoint
+		err := mqttAPI.Initialize("tcp://localhost:1883", "/acme/server")
+		if err != nil {
+			return nil, errors.Wrap(err, "error initializing mqtt connection")
+		}
 	}
 
 	// Admin API Router
