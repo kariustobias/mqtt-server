@@ -6,15 +6,18 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	//import the Paho Go MQTT library
 	MQTT "github.com/eclipse/paho.mqtt.golang"
-	"github.com/smallstep/certificates/mqtt_acme"
+	"github.com/go-chi/chi"
 	"github.com/smallstep/certificates/api"
 	"github.com/smallstep/certificates/api/render"
 	"github.com/smallstep/certificates/authority"
 	"github.com/smallstep/certificates/authority/provisioner"
+	acme "github.com/smallstep/certificates/mqtt_acme"
 )
 
 func link(url, typ string) string {
@@ -87,14 +90,29 @@ func Route(r api.Router) {
 
 func Initialize(broker string, endpoint string) error {
 	client, err := connectToBroker(broker)
-	if (err != nil) {
+	if err != nil {
 		return err
 	}
 
-	err := subscribe(endpoint, client)
-	if (err != nil) {
+	err = subscribe(endpoint, client)
+	if err != nil {
 		return err
 	}
+	return nil
+}
+
+//start MQTT connection by connecting to broker
+func connectToBroker(broker string) (MQTT.Client, error) {
+	opts := MQTT.NewClientOptions().AddBroker(broker)
+	opts.SetClientID("Device-sub")
+	opts.SetDefaultPublishHandler(f)
+
+	//create and start a client using the above ClientOptions
+	c := MQTT.NewClient(opts)
+	if token := c.Connect(); token.Wait() && token.Error() != nil {
+		return nil, fmt.Errorf("failed create new MQTT client: %w", token.Error())
+	}
+	return c, nil
 }
 
 //subscribe to MQTT endpoint
@@ -112,18 +130,16 @@ var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 	//redirect to method
 
 	topic := msg.Topic()
-        payload := msg.Payload()
-        if strings.Compare(string(payload), "\n") > 0 {
-                fmt.Printf("TOPIC: %s\n", topic)
-                fmt.Printf("MSG: %s\n", payload)
-        }
+	payload := msg.Payload()
+	if strings.Compare(string(payload), "\n") > 0 {
+		fmt.Printf("TOPIC: %s\n", topic)
+		fmt.Printf("MSG: %s\n", payload)
+	}
 
-        if strings.Compare("bye\n", string(payload)) == 0 {
-                fmt.Println("exitting")
-                flag = true
-        }
+	if strings.Compare("bye\n", string(payload)) == 0 {
+		fmt.Println("exiting")
+	}
 }
-
 
 func route(r api.Router, middleware func(next nextHTTP) nextHTTP) {
 	commonMiddleware := func(next nextHTTP) nextHTTP {
