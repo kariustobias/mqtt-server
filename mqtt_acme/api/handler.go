@@ -128,6 +128,8 @@ var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 	//parse JSON object
 	//get "path" object
 	//redirect to method
+	json, _ := json.Marshal(GetDirectoryMQTT())
+	//publish json
 
 	topic := msg.Topic()
 	payload := msg.Payload()
@@ -139,6 +141,8 @@ var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 	if strings.Compare("bye\n", string(payload)) == 0 {
 		fmt.Println("exiting")
 	}
+
+	fmt.Println(string(json))
 }
 
 func route(r api.Router, middleware func(next nextHTTP) nextHTTP) {
@@ -260,6 +264,22 @@ func GetDirectory(w http.ResponseWriter, r *http.Request) {
 			ExternalAccountRequired: acmeProv.RequireEAB,
 		},
 	})
+}
+
+// GetDirectory is the ACME resource for returning a directory configuration
+// for client configuration.
+func GetDirectoryMQTT() *Directory {
+
+	// initialize json
+	json := &Directory{
+		NewNonce:   "/acme/acme/new-nonce",
+		NewAccount: "/acme/acme/new-account",
+		NewOrder:   "/acme/acme/new-order",
+		RevokeCert: "/acme/acme/revoke-cert",
+		KeyChange:  "/acme/acme/key-change",
+	}
+
+	return json
 }
 
 // NotImplemented returns a 501 and is generally a placeholder for functionality which
