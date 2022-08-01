@@ -12,6 +12,7 @@ import (
 	"go.step.sm/crypto/jose"
 	"go.step.sm/crypto/keyutil"
 
+	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/smallstep/certificates/acme"
 	"github.com/smallstep/certificates/api/render"
 	"github.com/smallstep/certificates/authority/provisioner"
@@ -114,14 +115,13 @@ func parseJWS(next nextHTTP) nextHTTP {
 // parseJWS is a middleware that parses a request body into a JSONWebSignature struct.
 // param: the MQTT message as a JSON
 // return: the jws
-func parseJWSMQTT(msg) {
+func parseJWSMQTT(msg MQTT.Message) *jose.JSONWebSignature {
 	// 1. parse JWS out of msg
-
+	payload := msg.Payload()
 	// 2. get jws
-	jws, err : =jose.ParseJWS(body)
+	jws, err := jose.ParseJWS(string(payload))
 	if err != nil {
-		render.Error(w, acme.WrapError(acme.ErrorMalformedType, err, "failed to parse JWS from request body"))
-		return
+		return nil
 	}
 	return jws
 }
