@@ -1,4 +1,4 @@
-package api
+package mqtt_api
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	//import the Paho Go MQTT library
@@ -33,6 +32,8 @@ func (c *Clock) Now() time.Time {
 }
 
 var clock Clock
+
+var acmeDB acme.DB
 
 type payloadInfo struct {
 	value       []byte
@@ -101,6 +102,8 @@ func Initialize(broker string, endpoint string, db acme.DB) error {
 	if err != nil {
 		return err
 	}
+
+	acmeDB = db
 	return nil
 }
 
@@ -133,22 +136,14 @@ var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 	//redirect to method
 
 	//directory
-	json, _ := json.Marshal(GetDirectoryMQTT())
+	json := AddNonceMQTT(GetDirectoryMQTT())
 
 	//nonce
 
 	//publish json
 
-	topic := msg.Topic()
-	payload := msg.Payload()
-	if strings.Compare(string(payload), "\n") > 0 {
-		fmt.Printf("TOPIC: %s\n", topic)
-		fmt.Printf("MSG: %s\n", payload)
-	}
-
-	if strings.Compare("bye\n", string(payload)) == 0 {
-		fmt.Println("exiting")
-	}
+	// topic := msg.Topic()
+	// payload := msg.Payload()
 
 	fmt.Println(string(json))
 }
@@ -183,10 +178,10 @@ func route(r api.Router, middleware func(next nextHTTP) nextHTTP) {
 
 	// Standard ACME API
 
-	//doing
+	//check
 	r.MethodFunc("GET", getPath(acme.NewNonceLinkType, "{provisionerID}"),
 		commonMiddleware(addNonce(addDirLink(GetNonce))))
-	//doing
+	//check
 	r.MethodFunc("HEAD", getPath(acme.NewNonceLinkType, "{provisionerID}"),
 		commonMiddleware(addNonce(addDirLink(GetNonce))))
 
@@ -197,12 +192,16 @@ func route(r api.Router, middleware func(next nextHTTP) nextHTTP) {
 	r.MethodFunc("HEAD", getPath(acme.DirectoryLinkType, "{provisionerID}"),
 		commonMiddleware(GetDirectory))
 
+	//doing
 	r.MethodFunc("POST", getPath(acme.NewAccountLinkType, "{provisionerID}"),
 		extractPayloadByJWK(NewAccount))
+	//leave
 	r.MethodFunc("POST", getPath(acme.AccountLinkType, "{provisionerID}", "{accID}"),
 		extractPayloadByKid(GetOrUpdateAccount))
+	//leave
 	r.MethodFunc("POST", getPath(acme.KeyChangeLinkType, "{provisionerID}", "{accID}"),
 		extractPayloadByKid(NotImplemented))
+
 	r.MethodFunc("POST", getPath(acme.NewOrderLinkType, "{provisionerID}"),
 		extractPayloadByKid(NewOrder))
 	r.MethodFunc("POST", getPath(acme.OrderLinkType, "{provisionerID}", "{ordID}"),
@@ -282,28 +281,43 @@ func GetDirectory(w http.ResponseWriter, r *http.Request) {
 
 // GetDirectory is the ACME resource for returning a directory configuration
 // for client configuration.
-func GetDirectoryMQTT() *Directory {
+func GetDirectoryMQTT() []byte {
 
 	// initialize json
-	json := &Directory{
+	json, err := json.Marshal(&Directory{
 		NewNonce:   "/acme/acme/new-nonce",
 		NewAccount: "/acme/acme/new-account",
 		NewOrder:   "/acme/acme/new-order",
 		RevokeCert: "/acme/acme/revoke-cert",
 		KeyChange:  "/acme/acme/key-change",
+	})
+
+	if err != nil {
+		fmt.Println("could not marshal json: %s\n", err)
+		return nil
 	}
 
 	return json
 }
 
 // creates a nonce and
-// takes a JSON as an argument and adds a nonce to it
-func AddNonceMQTT() {
+// takes a JSON (marshal) as an argument and adds a nonce to it
+func AddNonceMQTT(byteJson []byte) []byte {
 	// 1. get the database - how?? dont have context, is initialized in ca.go? maybe store it as a variable
 
 	// 2. call db.CreateNonce
+	// ctx can be nil, since it won't be necessary for searching operations in the db
+	nonce, err := acmeDB.CreateNonce(nil)
+
+	fmt.Println(nonce)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
 
 	// 3. set the nonce in the json and return the json
+	toAppend := fmt.Sprintf(",\"replay-nonce\":\"%s\"}", string(nonce))
+	return append(byteJson[:len(byteJson)-1], toAppend...)
 }
 
 // NotImplemented returns a 501 and is generally a placeholder for functionality which
