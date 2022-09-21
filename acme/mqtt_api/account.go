@@ -2,9 +2,11 @@ package mqtt_api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi"
+	"gopkg.in/square/go-jose.v2"
 
 	"github.com/smallstep/certificates/acme"
 	"github.com/smallstep/certificates/api/render"
@@ -64,6 +66,48 @@ func (u *UpdateAccountRequest) Validate() error {
 		// accountUpdate should ignore any fields not recognized by the server.
 		return nil
 	}
+}
+
+func NewAccountMQTT(db acme.DB, payload []byte, acc *acme.Account, jwk *jose.JSONWebKey) []byte {
+	fmt.Printf("NewAccountMQTT\n")
+	var nar NewAccountRequest
+	if err := json.Unmarshal(payload, &nar); err != nil {
+		fmt.Printf("newAccountMQTT : failed to unmarshal new-account request payload\n")
+		return nil
+	}
+	if err := nar.Validate(); err != nil {
+		fmt.Printf("newAccountMQTT : %s\n", err)
+		return nil
+	}
+	if acc == nil {
+		if nar.OnlyReturnExisting {
+			fmt.Printf("newAccountMQTT : account does not exist\n")
+			return nil
+		}
+
+		acc = &acme.Account{
+			Key:     jwk,
+			Contact: nar.Contact,
+			Status:  acme.StatusValid,
+		}
+		if err := db.CreateAccount(nil, acc); err != nil {
+			fmt.Printf("newAccountMQTT : error creating account\n")
+			return nil
+		}
+	} else {
+		// account already exists
+		fmt.Printf("newAccountMQTT : account not empty\n")
+	}
+
+	//add location header in json
+	acc.OrdersURL = fmt.Sprintf("/acme/acct/%s/orders", acc.ID)
+	//return account in json
+	json, err := json.Marshal(acc)
+	if err != nil {
+		fmt.Println("could not marshal json: %s\n", err)
+		return nil
+	}
+	return json
 }
 
 // NewAccount is the handler resource for creating new ACME accounts.
