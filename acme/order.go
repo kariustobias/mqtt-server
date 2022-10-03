@@ -3,14 +3,19 @@ package acme
 import (
 	"bytes"
 	"context"
+	"crypto"
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"net"
+	"os"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/smallstep/certificates/authority"
 	"github.com/smallstep/certificates/authority/provisioner"
+	"go.step.sm/crypto/pemutil"
 	"go.step.sm/crypto/x509util"
 )
 
@@ -192,6 +197,74 @@ func (o *Order) Finalize(ctx context.Context, db DB, csr *x509.CertificateReques
 	o.Status = StatusValid
 	if err = db.UpdateOrder(ctx, o); err != nil {
 		return WrapErrorISE(err, "error updating order %s", o.ID)
+	}
+	return nil
+}
+
+func (o *Order) FinalizeMQTT(db DB, csr *x509.CertificateRequest) error {
+	fmt.Printf("FinalizeMQTT\n")
+	var ctx context.Context = nil
+	if err := o.UpdateStatus(ctx, db); err != nil {
+		return err
+	}
+
+	switch o.Status {
+	case StatusInvalid:
+		return fmt.Errorf("order %s has been abandoned", o.ID)
+	case StatusValid:
+		return nil
+	case StatusPending:
+		return fmt.Errorf("order %s is not ready", o.ID)
+	case StatusReady:
+		break
+	default:
+		return fmt.Errorf("unexpected status %s for order %s", o.Status, o.ID)
+	}
+
+	// canonicalize the CSR to allow for comparison
+	//csr = canonicalize(csr)
+	path, _ := os.Getwd()
+	fmt.Printf("\ncurrent dir: %s\n", path)
+
+	caPEM, err := os.ReadFile("authority/testdata/certs/root_ca.crt")
+	if err != nil {
+		return fmt.Errorf("error reading test root certificate %s", err)
+	}
+
+	crt, err := pemutil.ReadCertificate("authority/testdata/certs/intermediate_ca.crt")
+	if err != nil {
+		return fmt.Errorf("error reading test intermediate certificate %s", err)
+	}
+	key, err := pemutil.Read("authority/testdata/secrets/intermediate_ca_key", pemutil.WithPassword([]byte("pass")))
+	if err != nil {
+		return fmt.Errorf("error reading test intermediate ca key %s", err)
+	}
+
+	a, err := authority.NewEmbedded(authority.WithX509RootBundle(caPEM), authority.WithX509Signer(crt, key.(crypto.Signer)))
+	if err != nil {
+		return fmt.Errorf("error getting ca authority %s", err)
+	}
+
+	certChain, err := a.Sign(csr, provisioner.SignOptions{})
+	if err != nil {
+		return fmt.Errorf("error signing certificate %s", err)
+	}
+
+	cert := &Certificate{
+		AccountID:     o.AccountID,
+		OrderID:       o.ID,
+		Leaf:          certChain[0],
+		Intermediates: certChain[1:],
+	}
+	if err := db.CreateCertificate(ctx, cert); err != nil {
+		return fmt.Errorf("error creating certificate for order %s", err)
+	}
+
+	o.CertificateID = cert.ID
+	fmt.Printf("\nCERTIFICATEID: %s\n", o.CertificateID)
+	o.Status = StatusValid
+	if err = db.UpdateOrder(ctx, o); err != nil {
+		return fmt.Errorf("error updating order %s", err)
 	}
 	return nil
 }

@@ -30,7 +30,8 @@ const (
 	// DNS01 is the dns-01 ACME challenge type
 	DNS01 ChallengeType = "dns-01"
 	// TLSALPN01 is the tls-alpn-01 ACME challenge type
-	TLSALPN01 ChallengeType = "tls-alpn-01"
+	TLSALPN01      ChallengeType = "tls-alpn-01"
+	DEVICEATTEST01 ChallengeType = "device-attest-01"
 )
 
 // Challenge represents an ACME response Challenge type.
@@ -73,6 +74,21 @@ func (ch *Challenge) Validate(ctx context.Context, db DB, jwk *jose.JSONWebKey) 
 	case TLSALPN01:
 		return tlsalpn01Validate(ctx, ch, db, jwk)
 	default:
+		return NewErrorISE("unexpected challenge type '%s'", ch.Type)
+	}
+}
+
+func (ch *Challenge) ValidateMQTT(db DB, jwk *jose.JSONWebKey) error {
+	fmt.Printf("ValidateMQTT\n")
+	if ch.Status != StatusPending {
+		fmt.Printf("Status not pending : %s\n", ch.Status)
+		return nil
+	}
+	switch ch.Type {
+	case DEVICEATTEST01:
+		return deviceAttest01ValidateMQTT(ch, db, jwk)
+	default:
+		fmt.Printf("unexpected challenge type: %s\n", ch.Type)
 		return NewErrorISE("unexpected challenge type '%s'", ch.Type)
 	}
 }
@@ -292,6 +308,18 @@ func dns01Validate(ctx context.Context, ch *Challenge, db DB, jwk *jose.JSONWebK
 	ch.ValidatedAt = clock.Now().Format(time.RFC3339)
 
 	if err = db.UpdateChallenge(ctx, ch); err != nil {
+		return WrapErrorISE(err, "error updating challenge")
+	}
+	return nil
+}
+
+func deviceAttest01ValidateMQTT(ch *Challenge, db DB, jwk *jose.JSONWebKey) error {
+	fmt.Printf("deviceAttest01ValidateMQTT\n")
+	ch.Status = StatusValid
+	ch.Error = nil
+	ch.ValidatedAt = clock.Now().Format(time.RFC3339)
+
+	if err := db.UpdateChallenge(nil, ch); err != nil {
 		return WrapErrorISE(err, "error updating challenge")
 	}
 	return nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -116,6 +117,7 @@ func parseJWS(next nextHTTP) nextHTTP {
 // param: the MQTT message as a JSON
 // return: the jws
 func parseJWSMQTT(msg MQTT.Message) *jose.JSONWebSignature {
+	fmt.Printf("parseJWSMQTT\n")
 	// 1. parse JWS out of msg
 	payload := msg.Payload()
 	// 2. get jws
@@ -226,6 +228,67 @@ func validateJWS(next nextHTTP) nextHTTP {
 	}
 }
 
+func validateJwsMQTT(jws *jose.JSONWebSignature, db acme.DB) error {
+	fmt.Printf("validateJwsMQTT\n")
+
+	if len(jws.Signatures) == 0 {
+		fmt.Printf("validateJwsMQTT error : request body does not contain a signature")
+		return acme.NewError(acme.ErrorMalformedType, "validateJwsMQTT error : request body does not contain a signature")
+	}
+	if len(jws.Signatures) > 1 {
+		return acme.NewError(acme.ErrorMalformedType, "validateJwsMQTT error : request body contains more than one signature")
+	}
+
+	sig := jws.Signatures[0]
+	uh := sig.Unprotected
+	if len(uh.KeyID) > 0 ||
+		uh.JSONWebKey != nil ||
+		len(uh.Algorithm) > 0 ||
+		len(uh.Nonce) > 0 ||
+		len(uh.ExtraHeaders) > 0 {
+		return acme.NewError(acme.ErrorMalformedType, "validateJwsMQTT error : unprotected header must not be used")
+	}
+	hdr := sig.Protected
+	switch hdr.Algorithm {
+	case jose.RS256, jose.RS384, jose.RS512, jose.PS256, jose.PS384, jose.PS512:
+		if hdr.JSONWebKey != nil {
+			switch k := hdr.JSONWebKey.Key.(type) {
+			case *rsa.PublicKey:
+				if k.Size() < keyutil.MinRSAKeyBytes {
+					return acme.NewError(acme.ErrorMalformedType, "validateJwsMQTT error : rsa keys must be at least %d bits (%d bytes) in size",
+						8*keyutil.MinRSAKeyBytes, keyutil.MinRSAKeyBytes)
+				}
+			default:
+				return acme.NewError(acme.ErrorMalformedType, "validateJwsMQTT error : jws key type and algorithm do not match")
+			}
+		}
+	case jose.ES256, jose.ES384, jose.ES512, jose.EdDSA:
+		// we good
+	default:
+		fmt.Printf("validateJwsMQTT error : unsuitable algorithm: %s", hdr.Algorithm)
+		return acme.NewError(acme.ErrorMalformedType, "validateJwsMQTT error : unsuitable algorithm: %s", hdr.Algorithm)
+	}
+
+	// Check the validity/freshness of the Nonce.
+	if err := db.DeleteNonce(nil, acme.Nonce(hdr.Nonce)); err != nil {
+		return acme.NewError(acme.ErrorMalformedType, "validateJwsMQTT error : error deleting nonce out of database : %s\n", err)
+	}
+
+	// Check that the JWS url matches the requested url.
+	_, ok := hdr.ExtraHeaders["url"].(string)
+	if !ok {
+		return acme.NewError(acme.ErrorMalformedType, "validateJwsMQTT error : jws missing url protected header")
+	}
+
+	if hdr.JSONWebKey != nil && len(hdr.KeyID) > 0 {
+		return acme.NewError(acme.ErrorMalformedType, "validateJwsMQTT error : jwk and kid are mutually exclusive")
+	}
+	if hdr.JSONWebKey == nil && hdr.KeyID == "" {
+		return acme.NewError(acme.ErrorMalformedType, "validateJwsMQTT error : either jwk or kid must be defined in jws protected header")
+	}
+	return nil
+}
+
 // extractJWK is a middleware that extracts the JWK from the JWS and saves it
 // in the context. Make sure to parse and validate the JWS before running this
 // middleware.
@@ -277,6 +340,26 @@ func extractJWK(next nextHTTP) nextHTTP {
 		}
 		next(w, r.WithContext(ctx))
 	}
+}
+
+func extractJWKMQTT(jws *jose.JSONWebSignature) (*jose.JSONWebKey, error) {
+	fmt.Printf("extractJWKMQTT\n")
+	jwk := jws.Signatures[0].Protected.JSONWebKey
+	if jwk == nil {
+		//fmt.Println("jwk expected in MQTT message: %s\n", acme.NewError(acme.ErrorMalformedType))
+		return nil, acme.NewError(acme.ErrorMalformedType, "extractJWKMQTT : jwk is empty")
+	}
+	if !jwk.Valid() {
+		return nil, acme.NewError(acme.ErrorMalformedType, "extractJWKMQTT : jwk invalid")
+	}
+	// Overwrite KeyID with the JWK thumbprint.
+	var err error
+	jwk.KeyID, err = acme.KeyToID(jwk)
+	if err != nil {
+		return nil, acme.NewError(acme.ErrorMalformedType, "extractJWKMQTT : KeyToID convertion failed")
+	}
+
+	return jwk, nil
 }
 
 // checkPrerequisites checks if all prerequisites for serving ACME
@@ -347,6 +430,32 @@ func lookupJWK(next nextHTTP) nextHTTP {
 	}
 }
 
+func lookupJWKMQTT(jws *jose.JSONWebSignature, db acme.DB) (*acme.Account, error) {
+	fmt.Printf("lookupJWKMQTT\n")
+	kidPrefix := "/acme/acct/"
+	kid := jws.Signatures[0].Protected.KeyID
+	if !strings.HasPrefix(kid, kidPrefix) {
+		return nil, acme.NewError(acme.ErrorMalformedType,
+			"kid does not have required prefix; expected %s, but got %s",
+			kidPrefix, kid)
+	}
+	accID := strings.TrimPrefix(kid, kidPrefix)
+	acc, err := db.GetAccount(nil, accID)
+
+	switch {
+	case nosql.IsErrNotFound(err):
+		return nil, acme.NewError(acme.ErrorAccountDoesNotExistType, "account with ID '%s' not found", accID)
+	case err != nil:
+		return nil, err
+	default:
+		if !acc.IsValid() {
+			return nil, acme.NewError(acme.ErrorUnauthorizedType, "account is not active")
+		}
+	}
+
+	return acc, nil
+}
+
 // extractOrLookupJWK forwards handling to either extractJWK or
 // lookupJWK based on the presence of a JWK or a KID, respectively.
 func extractOrLookupJWK(next nextHTTP) nextHTTP {
@@ -414,6 +523,21 @@ func verifyAndExtractJWSPayload(next nextHTTP) nextHTTP {
 		})
 		next(w, r.WithContext(ctx))
 	}
+}
+
+func verifyAndExtractJWSPayloadMQTT(jws *jose.JSONWebSignature, jwk *jose.JSONWebKey) []byte {
+	fmt.Printf("verifyAndExtractJWSPayloadMQTT\n")
+	if jwk.Algorithm != "" && jwk.Algorithm != jws.Signatures[0].Protected.Algorithm {
+		fmt.Printf("verifyAndExtractJWSPayloadMQTT : verifier and signature algorithm do not match")
+		return nil
+	}
+	payload, err := jws.Verify(jwk)
+	if err != nil {
+		fmt.Printf("verifyAndExtractJWSPayloadMQTT : error verifying jws")
+		return nil
+	}
+
+	return payload
 }
 
 // isPostAsGet asserts that the request is a PostAsGet (empty JWS payload).

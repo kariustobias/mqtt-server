@@ -368,7 +368,7 @@ func challengeTypes(az *acme.Authorization) []acme.ChallengeType {
 	case acme.IP:
 		chTypes = []acme.ChallengeType{acme.HTTP01, acme.TLSALPN01}
 	case acme.DNS:
-		chTypes = []acme.ChallengeType{acme.DNS01}
+		chTypes = []acme.ChallengeType{acme.DNS01, acme.DEVICEATTEST01}
 		// HTTP and TLS challenges can only be used for identifiers without wildcards.
 		if !az.Wildcard {
 			chTypes = append(chTypes, []acme.ChallengeType{acme.HTTP01, acme.TLSALPN01}...)

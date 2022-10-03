@@ -1,0 +1,19 @@
+make --dry-run --always-make --keep-going --print-directory
+make: Entering directory '/home/devbox/mqtt-server'
+ 
+golangci-lint run --timeout=30m
+CGO_ENABLED=0 go test -short -coverprofile=coverage.out ./...
+go mod download
+mkdir -p bin
+CGO_ENABLED=0 go build -v -o bin/step-ca -ldflags='-w -X "main.Version=0.21.0-6-gdb2ab6c3-dev" -X "main.BuildTime=2022-08-10 10:22 UTC"' github.com/smallstep/certificates/cmd/step-ca
+mkdir -p bin
+CGO_ENABLED=0 go build -v -o bin/step-cloudkms-init -ldflags='-w -X "main.Version=0.21.0-6-gdb2ab6c3-dev" -X "main.BuildTime=2022-08-10 10:22 UTC"' github.com/smallstep/certificates/cmd/step-cloudkms-init
+mkdir -p bin
+CGO_ENABLED=0 go build -v -o bin/step-awskms-init -ldflags='-w -X "main.Version=0.21.0-6-gdb2ab6c3-dev" -X "main.BuildTime=2022-08-10 10:22 UTC"' github.com/smallstep/certificates/cmd/step-awskms-init
+mkdir -p bin
+CGO_ENABLED=0 go build -v -o bin/step-yubikey-init -ldflags='-w -X "main.Version=0.21.0-6-gdb2ab6c3-dev" -X "main.BuildTime=2022-08-10 10:22 UTC"' github.com/smallstep/certificates/cmd/step-yubikey-init
+mkdir -p bin
+CGO_ENABLED=0 go build -v -o bin/step-pkcs11-init -ldflags='-w -X "main.Version=0.21.0-6-gdb2ab6c3-dev" -X "main.BuildTime=2022-08-10 10:22 UTC"' github.com/smallstep/certificates/cmd/step-pkcs11-init
+echo "Build Complete!"
+make: Leaving directory '/home/devbox/mqtt-server'
+ 

@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -62,13 +63,17 @@ func (f *FinalizeRequest) Validate() error {
 	// to be the case for a Synology DSM NAS system.
 	csrBytes, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(f.CSR, "="))
 	if err != nil {
+		fmt.Printf("\nf.CSR: %s\n", f.CSR)
+		fmt.Printf("\nerr: %s\n", err)
 		return acme.WrapError(acme.ErrorMalformedType, err, "error base64url decoding csr")
 	}
 	f.csr, err = x509.ParseCertificateRequest(csrBytes)
 	if err != nil {
+		fmt.Printf("Test9")
 		return acme.WrapError(acme.ErrorMalformedType, err, "unable to parse csr")
 	}
 	if err = f.csr.CheckSignature(); err != nil {
+		fmt.Printf("Test10")
 		return acme.WrapError(acme.ErrorMalformedType, err, "csr failed signature check")
 	}
 	return nil
@@ -204,6 +209,83 @@ func NewOrder(w http.ResponseWriter, r *http.Request) {
 	render.JSONStatus(w, o, http.StatusCreated)
 }
 
+func NewOrderMQTT(db acme.DB, acc *acme.Account, payload []byte) ([]byte, error) {
+	fmt.Printf("NewAccountMQTT\n")
+	var nor NewOrderRequest
+	if err := json.Unmarshal(payload, &nor); err != nil {
+		return nil, acme.NewError(acme.ErrorMalformedType, "failed to unmarshal new-order request payload : %s", err)
+	}
+
+	if err := nor.Validate(); err != nil {
+		return nil, err
+	}
+
+	//TODO: evaluate policies
+
+	now := clock.Now()
+	// New order.
+	o := &acme.Order{
+		AccountID: acc.ID,
+		//ProvisionerID:    prov.GetID(),
+		Status:           acme.StatusPending,
+		Identifiers:      nor.Identifiers,
+		ExpiresAt:        now.Add(defaultOrderExpiry),
+		AuthorizationIDs: make([]string, len(nor.Identifiers)),
+		NotBefore:        nor.NotBefore,
+		NotAfter:         nor.NotAfter,
+	}
+
+	for i, identifier := range o.Identifiers {
+		az := &acme.Authorization{
+			AccountID:  acc.ID,
+			Identifier: identifier,
+			ExpiresAt:  o.ExpiresAt,
+			Status:     acme.StatusPending,
+		}
+		if err := newAuthorizationMQTT(az, db); err != nil {
+			return nil, err
+		}
+		o.AuthorizationIDs[i] = az.ID
+	}
+
+	if o.NotBefore.IsZero() {
+		o.NotBefore = now
+	}
+	if o.NotAfter.IsZero() {
+		//o.NotAfter = o.NotBefore.Add(prov.DefaultTLSCertDuration())
+		o.NotAfter = o.NotBefore.Add(time.Hour * 24 * 8)
+	}
+	// If request NotBefore was empty then backdate the order.NotBefore (now)
+	// to avoid timing issues.
+	if nor.NotBefore.IsZero() {
+		o.NotBefore = o.NotBefore.Add(-defaultOrderBackdate)
+	}
+
+	if err := db.CreateOrder(nil, o); err != nil {
+		return nil, acme.WrapErrorISE(err, "error creating order")
+	}
+
+	linkOrderMQTT(o)
+
+	json, err := json.Marshal(o)
+	if err != nil {
+		return nil, acme.WrapErrorISE(err, "could not marshal json: %s")
+	}
+
+	return json, nil
+}
+
+func linkOrderMQTT(o *acme.Order) {
+	o.AuthorizationURLs = make([]string, len(o.AuthorizationIDs))
+	for i, azID := range o.AuthorizationIDs {
+		o.AuthorizationURLs[i] = fmt.Sprintf("/acme/authz/%s", azID)
+	}
+	o.FinalizeURL = fmt.Sprintf("/acme/order/%s/finalize", o.ID)
+	if o.CertificateID != "" {
+		o.CertificateURL = fmt.Sprintf("/acme/cert/%s", o.CertificateID)
+	}
+}
+
 func isIdentifierAllowed(acmePolicy policy.X509Policy, identifier acme.Identifier) error {
 	if acmePolicy == nil {
 		return nil
@@ -251,6 +333,34 @@ func newAuthorization(ctx context.Context, az *acme.Authorization) error {
 		az.Challenges[i] = ch
 	}
 	if err = db.CreateAuthorization(ctx, az); err != nil {
+		return acme.WrapErrorISE(err, "error creating authorization")
+	}
+	return nil
+}
+
+func newAuthorizationMQTT(az *acme.Authorization, db acme.DB) error {
+	chTypes := challengeTypesMQTT(az)
+
+	var err error
+	az.Token, err = randutil.Alphanumeric(32)
+	az.Challenges = make([]*acme.Challenge, len(chTypes))
+	if err != nil {
+		return acme.WrapErrorISE(err, "error generating random alphanumeric ID")
+	}
+	for i, typ := range chTypes {
+		ch := &acme.Challenge{
+			AccountID: az.AccountID,
+			Value:     az.Identifier.Value,
+			Type:      typ,
+			Token:     az.Token,
+			Status:    acme.StatusPending,
+		}
+		if err := db.CreateChallenge(nil, ch); err != nil {
+			return acme.WrapErrorISE(err, "error creating challenge")
+		}
+		az.Challenges[i] = ch
+	}
+	if err = db.CreateAuthorization(nil, az); err != nil {
 		return acme.WrapErrorISE(err, "error creating authorization")
 	}
 	return nil
@@ -359,6 +469,43 @@ func FinalizeOrder(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, o)
 }
 
+func FinalizeOrderMQTT(db acme.DB, acc *acme.Account, payload []byte, ordID string) ([]byte, error) {
+	fmt.Printf("FinalizeOrderMQTT")
+	var fr FinalizeRequest
+	if err := json.Unmarshal(payload, &fr); err != nil {
+		return nil, acme.WrapError(acme.ErrorMalformedType, err,
+			"failed to unmarshal finalize-order request payload")
+	}
+	fmt.Printf("Test1")
+	if err := fr.Validate(); err != nil {
+		return nil, err
+	}
+	fmt.Printf("Test2")
+	o, err := db.GetOrder(nil, ordID)
+	if err != nil {
+		return nil, acme.WrapErrorISE(err, "error retrieving order")
+	}
+	fmt.Printf("Test3")
+	if acc.ID != o.AccountID {
+		return nil, acme.NewError(acme.ErrorUnauthorizedType,
+			"account '%s' does not own order '%s'", acc.ID, o.ID)
+	}
+	fmt.Printf("Test4")
+	if err = o.FinalizeMQTT(db, fr.csr); err != nil {
+		return nil, fmt.Errorf("error finalizing order %s\n", err)
+	}
+	fmt.Printf("Test5")
+
+	linkOrderMQTT(o)
+
+	json, err := json.Marshal(o)
+	if err != nil {
+		return nil, acme.WrapErrorISE(err, "could not marshal json: %s")
+	}
+
+	return json, nil
+}
+
 // challengeTypes determines the types of challenges that should be used
 // for the ACME authorization request.
 func challengeTypes(az *acme.Authorization) []acme.ChallengeType {
@@ -376,6 +523,12 @@ func challengeTypes(az *acme.Authorization) []acme.ChallengeType {
 	default:
 		chTypes = []acme.ChallengeType{}
 	}
+
+	return chTypes
+}
+
+func challengeTypesMQTT(az *acme.Authorization) []acme.ChallengeType {
+	chTypes := []acme.ChallengeType{acme.DEVICEATTEST01}
 
 	return chTypes
 }

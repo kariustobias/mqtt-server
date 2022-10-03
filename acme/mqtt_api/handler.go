@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	//import the Paho Go MQTT library
@@ -17,6 +18,7 @@ import (
 	"github.com/smallstep/certificates/api/render"
 	"github.com/smallstep/certificates/authority"
 	"github.com/smallstep/certificates/authority/provisioner"
+	"gopkg.in/square/go-jose.v2"
 )
 
 func link(url, typ string) string {
@@ -39,6 +41,12 @@ type payloadInfo struct {
 	value       []byte
 	isPostAsGet bool
 	isEmptyJSON bool
+}
+
+type payloadByJWKOrKID struct {
+	payload []byte
+	jwk     *jose.JSONWebKey
+	acc     *acme.Account
 }
 
 // HandlerOptions required to create a new ACME API request handler.
@@ -129,23 +137,141 @@ func subscribe(endpoint string, client MQTT.Client) error {
 	return nil
 }
 
+type Path struct {
+	Path string `json:"path"`
+}
+
 //define a function for the default message handler
 var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
-	//parse JSON object
-	//get "path" object
-	//redirect to method
 
-	//directory
-	json := AddNonceMQTT(GetDirectoryMQTT())
+	var path Path
+	// get json out of msg
+	json.Unmarshal(msg.Payload(), &path)
+	var json []byte
+	switch {
+	case path.Path == "/acme/acme/directory":
+		json = GetDirectoryMQTT()
+	case path.Path == "/acme/acme/new-nonce":
+		json = AddNonceMQTT(json)
+	case path.Path == "/acme/acme/new-account":
+		var payload *payloadByJWKOrKID
+		payload, err := extractpayloadByJWKMQTT(msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+		json = NewAccountMQTT(acmeDB, payload.payload, nil, payload.jwk)
+		json = AddNonceMQTT(json)
+	case path.Path == "/acme/acme/new-order":
+		var payload *payloadByJWKOrKID
+		payload, err := extractPayloadByKidMQTT(msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+		json, err = NewOrderMQTT(acmeDB, payload.acc, payload.payload)
+		if err != nil {
+			fmt.Println(err)
+		}
+		json = AddNonceMQTT(json)
+	case strings.Contains(path.Path, "/acme/authz"):
+		var payload *payloadByJWKOrKID
+		payload, err := extractPayloadByKidMQTT(msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+		authzID := path.Path[len("/acme/authz/"):]
+		json, err = GetAuthorizationMQTT(acmeDB, payload.acc, authzID)
+		if err != nil {
+			fmt.Println(err)
+		}
+		json = AddNonceMQTT(json)
+	case strings.Contains(path.Path, "/acme/challenge"):
+		var payload *payloadByJWKOrKID
+		payload, err := extractPayloadByKidMQTT(msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+		split, err := getAzIDChID(path.Path)
+		if err != nil {
+			fmt.Println(err)
+		}
+		json, err = GetChallengeMQTT(acmeDB, payload.acc, split[0], split[1], payload.jwk)
+		if err != nil {
+			fmt.Println(err)
+		}
+		json = AddNonceMQTT(json)
+	case strings.Contains(path.Path, "finalize"):
+		var payload *payloadByJWKOrKID
+		payload, err := extractPayloadByKidMQTT(msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+		ordID := strings.ReplaceAll(path.Path, "/acme/order/", "")
+		ordID = strings.ReplaceAll(ordID, "/finalize", "")
 
-	//nonce
+		json, err = FinalizeOrderMQTT(acmeDB, payload.acc, payload.payload, ordID)
+		if err != nil {
+			fmt.Println(err)
+		}
+		json = AddNonceMQTT(json)
+	case strings.Contains(path.Path, "/acme/cert"):
+		var payload *payloadByJWKOrKID
+		payload, err := extractPayloadByKidMQTT(msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+		json, err = GetCertificateMQTT(acmeDB, payload.acc, strings.ReplaceAll(path.Path, "/acme/cert/", ""))
+		if err != nil {
+			fmt.Println(err)
+		}
+	default:
+		fmt.Printf("undefined path value: %s\n", path.Path)
+		fmt.Println(string(msg.Payload()))
+	}
 
+	returnPath := fmt.Sprintf(",\"path\":\"%s\"}", path.Path)
+	fmt.Printf("json before append: %s\n", string(json))
+	json = append(json[:len(json)-1], returnPath...)
+	fmt.Printf("json after append: %s\n", string(json))
 	//publish json
+	PublishMQTTMessage(client, json, "/acme/client")
 
-	// topic := msg.Topic()
-	// payload := msg.Payload()
+}
 
-	fmt.Println(string(json))
+func extractpayloadByJWKMQTT(msg MQTT.Message) (*payloadByJWKOrKID, error) {
+	var payload *payloadByJWKOrKID
+	payload = new(payloadByJWKOrKID)
+	jws := parseJWSMQTT(msg)
+	err := validateJwsMQTT(jws, acmeDB)
+	if err != nil {
+		return nil, err
+	}
+	payload.jwk, err = extractJWKMQTT(jws)
+	if err != nil {
+		return nil, err
+	}
+	payload.payload = verifyAndExtractJWSPayloadMQTT(jws, payload.jwk)
+	return payload, nil
+}
+
+func extractPayloadByKidMQTT(msg MQTT.Message) (*payloadByJWKOrKID, error) {
+	var payload *payloadByJWKOrKID
+	payload = new(payloadByJWKOrKID)
+	jws := parseJWSMQTT(msg)
+	err := validateJwsMQTT(jws, acmeDB)
+	if err != nil {
+		return nil, err
+	}
+	acc, err := lookupJWKMQTT(jws, acmeDB)
+	if err != nil {
+		return nil, fmt.Errorf("lookupJWKMQTT Error : %w", err)
+	}
+	payload.jwk = acc.Key
+	payload.acc = acc
+	if err != nil {
+		return nil, err
+	}
+	payload.payload = verifyAndExtractJWSPayloadMQTT(jws, payload.jwk)
+	return payload, nil
 }
 
 func route(r api.Router, middleware func(next nextHTTP) nextHTTP) {
@@ -164,7 +290,7 @@ func route(r api.Router, middleware func(next nextHTTP) nextHTTP) {
 	validatingMiddleware := func(next nextHTTP) nextHTTP {
 		return commonMiddleware(addNonce(addDirLink(verifyContentType(parseJWS(validateJWS(next))))))
 	}
-	extractPayloadByJWK := func(next nextHTTP) nextHTTP {
+	extractpayloadByJWKOrKID := func(next nextHTTP) nextHTTP {
 		return validatingMiddleware(extractJWK(verifyAndExtractJWSPayload(next)))
 	}
 	extractPayloadByKid := func(next nextHTTP) nextHTTP {
@@ -192,9 +318,9 @@ func route(r api.Router, middleware func(next nextHTTP) nextHTTP) {
 	r.MethodFunc("HEAD", getPath(acme.DirectoryLinkType, "{provisionerID}"),
 		commonMiddleware(GetDirectory))
 
-	//doing
+	//check
 	r.MethodFunc("POST", getPath(acme.NewAccountLinkType, "{provisionerID}"),
-		extractPayloadByJWK(NewAccount))
+		extractpayloadByJWKOrKID(NewAccount))
 	//leave
 	r.MethodFunc("POST", getPath(acme.AccountLinkType, "{provisionerID}", "{accID}"),
 		extractPayloadByKid(GetOrUpdateAccount))
@@ -202,20 +328,28 @@ func route(r api.Router, middleware func(next nextHTTP) nextHTTP) {
 	r.MethodFunc("POST", getPath(acme.KeyChangeLinkType, "{provisionerID}", "{accID}"),
 		extractPayloadByKid(NotImplemented))
 
+	//check
 	r.MethodFunc("POST", getPath(acme.NewOrderLinkType, "{provisionerID}"),
 		extractPayloadByKid(NewOrder))
+	//leave
 	r.MethodFunc("POST", getPath(acme.OrderLinkType, "{provisionerID}", "{ordID}"),
 		extractPayloadByKid(isPostAsGet(GetOrder)))
+	//leave
 	r.MethodFunc("POST", getPath(acme.OrdersByAccountLinkType, "{provisionerID}", "{accID}"),
 		extractPayloadByKid(isPostAsGet(GetOrdersByAccountID)))
+	//check
 	r.MethodFunc("POST", getPath(acme.FinalizeLinkType, "{provisionerID}", "{ordID}"),
 		extractPayloadByKid(FinalizeOrder))
+	//check
 	r.MethodFunc("POST", getPath(acme.AuthzLinkType, "{provisionerID}", "{authzID}"),
 		extractPayloadByKid(isPostAsGet(GetAuthorization)))
+	//check
 	r.MethodFunc("POST", getPath(acme.ChallengeLinkType, "{provisionerID}", "{authzID}", "{chID}"),
 		extractPayloadByKid(GetChallenge))
+	//todo
 	r.MethodFunc("POST", getPath(acme.CertificateLinkType, "{provisionerID}", "{certID}"),
 		extractPayloadByKid(isPostAsGet(GetCertificate)))
+	//leave
 	r.MethodFunc("POST", getPath(acme.RevokeCertLinkType, "{provisionerID}"),
 		extractPayloadByKidOrJWK(RevokeCert))
 }
@@ -282,7 +416,7 @@ func GetDirectory(w http.ResponseWriter, r *http.Request) {
 // GetDirectory is the ACME resource for returning a directory configuration
 // for client configuration.
 func GetDirectoryMQTT() []byte {
-
+	fmt.Printf("GetDirectoryMQTT\n")
 	// initialize json
 	json, err := json.Marshal(&Directory{
 		NewNonce:   "/acme/acme/new-nonce",
@@ -303,10 +437,7 @@ func GetDirectoryMQTT() []byte {
 // creates a nonce and
 // takes a JSON (marshal) as an argument and adds a nonce to it
 func AddNonceMQTT(byteJson []byte) []byte {
-	// 1. get the database - how?? dont have context, is initialized in ca.go? maybe store it as a variable
-
-	// 2. call db.CreateNonce
-	// ctx can be nil, since it won't be necessary for searching operations in the db
+	fmt.Printf("AddNonceMQTT\n")
 	nonce, err := acmeDB.CreateNonce(nil)
 
 	fmt.Println(nonce)
@@ -316,8 +447,13 @@ func AddNonceMQTT(byteJson []byte) []byte {
 	}
 
 	// 3. set the nonce in the json and return the json
-	toAppend := fmt.Sprintf(",\"replay-nonce\":\"%s\"}", string(nonce))
-	return append(byteJson[:len(byteJson)-1], toAppend...)
+
+	// if statement is true on every request except "new-nonce". Here, the MQTT message is empty
+	if len(byteJson) > 0 {
+		toAppend := fmt.Sprintf(",\"nonce\":\"%s\"}", string(nonce))
+		return append(byteJson[:len(byteJson)-1], toAppend...)
+	}
+	return []byte(fmt.Sprintf("{\"nonce\":\"%s\"}", string(nonce)))
 }
 
 // NotImplemented returns a 501 and is generally a placeholder for functionality which
@@ -356,6 +492,44 @@ func GetAuthorization(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Location", linker.GetLink(ctx, acme.AuthzLinkType, az.ID))
 	render.JSON(w, az)
+}
+
+func GetAuthorizationMQTT(db acme.DB, acc *acme.Account, authzID string) ([]byte, error) {
+	fmt.Printf("GetAuthorizationMQTT\n")
+	az, err := db.GetAuthorization(nil, authzID)
+	if err != nil {
+		return nil, acme.WrapErrorISE(err, "error retrieving authorization")
+	}
+	if acc.ID != az.AccountID {
+		return nil, acme.NewError(acme.ErrorUnauthorizedType,
+			"account '%s' does not own authorization '%s'", acc.ID, az.ID)
+	}
+	if err = az.UpdateStatus(nil, db); err != nil {
+		return nil, acme.WrapErrorISE(err, "error updating authorization status")
+	}
+	linkAuthorization(az)
+	json, err := json.Marshal(az)
+	if err != nil {
+		return nil, acme.WrapErrorISE(err, "could not marshal json: %s")
+	}
+	return json, nil
+}
+
+func linkAuthorization(az *acme.Authorization) {
+	for _, ch := range az.Challenges {
+		ch.URL = fmt.Sprintf("/acme/challenge/%s/%s", az.ID, ch.ID)
+	}
+}
+
+func linkChallenge(ch *acme.Challenge, azID string) {
+	ch.URL = fmt.Sprintf("/acme/challenge/%s/%s", azID, ch.ID)
+}
+
+//takes a marshaled json as input parameter and publishes the json as string on given endpoint
+func PublishMQTTMessage(client MQTT.Client, json []byte, endpoint string) {
+	//string(json)
+	token := client.Publish(endpoint, 0, false, string(json))
+	token.Wait()
 }
 
 // GetChallenge ACME api for retrieving a Challenge.
@@ -405,11 +579,41 @@ func GetChallenge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	linker.LinkChallenge(ctx, ch, azID)
+	linkChallenge(ch, azID)
 
 	w.Header().Add("Link", link(linker.GetLink(ctx, acme.AuthzLinkType, azID), "up"))
 	w.Header().Set("Location", linker.GetLink(ctx, acme.ChallengeLinkType, azID, ch.ID))
 	render.JSON(w, ch)
+}
+
+func getAzIDChID(path string) ([]string, error) {
+	authzIDchID := path[len("/acme/challenge/"):]
+	split := strings.Split(authzIDchID, "/")
+	if len(split) != 2 {
+		return nil, fmt.Errorf("challenge path does not have the required format. Expected parameters : 2, have : %s", len(split))
+	}
+	return split, nil
+}
+
+func GetChallengeMQTT(db acme.DB, acc *acme.Account, azID string, chID string, jwk *jose.JSONWebKey) ([]byte, error) {
+	fmt.Printf("GetChallengeMQTT\n")
+	ch, err := db.GetChallenge(nil, chID, azID)
+	if err != nil {
+		return nil, acme.WrapErrorISE(err, "error retrieving challenge")
+	}
+	ch.AuthorizationID = azID
+	if acc.ID != ch.AccountID {
+		return nil, acme.NewError(acme.ErrorUnauthorizedType,
+			"account '%s' does not own challenge '%s'", acc.ID, ch.ID)
+	}
+	if err = ch.ValidateMQTT(db, jwk); err != nil {
+		return nil, acme.WrapErrorISE(err, "error validating challenge")
+	}
+	json, err := json.Marshal(ch)
+	if err != nil {
+		return nil, acme.WrapErrorISE(err, "could not marshal json: %s")
+	}
+	return json, nil
 }
 
 // GetCertificate ACME api for retrieving a Certificate.
@@ -446,4 +650,24 @@ func GetCertificate(w http.ResponseWriter, r *http.Request) {
 	api.LogCertificate(w, cert.Leaf)
 	w.Header().Set("Content-Type", "application/pem-certificate-chain; charset=utf-8")
 	w.Write(certBytes)
+}
+
+func GetCertificateMQTT(db acme.DB, acc *acme.Account, certID string) ([]byte, error) {
+	cert, err := db.GetCertificate(nil, certID)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving certificate: %s\n", err)
+	}
+
+	if cert.AccountID != acc.ID {
+		return nil, fmt.Errorf("account does not own certificate: %s\n", err)
+	}
+	var certBytes []byte
+	for _, c := range append([]*x509.Certificate{cert.Leaf}, cert.Intermediates...) {
+		certBytes = append(certBytes, pem.EncodeToMemory(&pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: c.Raw,
+		})...)
+	}
+	fmt.Printf("CERTIFICATE:\n %s", string(certBytes))
+	return certBytes, nil
 }

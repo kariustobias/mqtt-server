@@ -1,0 +1,688 @@
+make all --print-data-base --no-builtin-variables --no-builtin-rules --question
+# GNU Make 4.2.1
+# Built for x86_64-pc-linux-gnu
+# Copyright (C) 1988-2016 Free Software Foundation, Inc.
+# License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+# This is free software: you are free to change and redistribute it.
+# There is NO WARRANTY, to the extent permitted by law.
+
+# Make data base, printed on Wed Aug 10 12:22:55 2022
+
+# Variables
+
+# automatic
+<D = $(patsubst %/,%,$(dir $<))
+# makefile (from 'Makefile', line 14)
+PREFIX = 
+# automatic
+?F = $(notdir $?)
+# environment
+DESKTOP_SESSION = xubuntu
+# default
+.SHELLFLAGS := -c
+# makefile (from 'make/docker.mk', line 81)
+DOCKER_OUTPUT = $(OUTPUT_ROOT)docker/
+# environment
+XDG_SESSION_CLASS = user
+# makefile (from 'Makefile', line 15)
+SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
+# environment
+XDG_SESSION_TYPE = x11
+# automatic
+?D = $(patsubst %/,%,$(dir $?))
+# automatic
+@D = $(patsubst %/,%,$(dir $@))
+# environment
+XAUTHORITY = /home/devbox/.Xauthority
+# environment
+GDMSESSION = xubuntu
+# default
+MAKE_VERSION := 4.2.1
+# makefile
+CURDIR := /home/devbox/mqtt-server
+# makefile
+SHELL = /bin/sh
+# environment
+GDM_LANG = en_US
+# makefile (from 'Makefile', line 13)
+Q = $(if $V,,@)
+# environment
+VTE_VERSION = 6003
+# environment
+VSCODE_NLS_CONFIG = {"locale":"en-us","availableLanguages":{},"_languagePackSupport":true}
+# environment
+_ = /usr/bin/code
+# environment
+XDG_CONFIG_DIRS = /etc/xdg/xdg-xubuntu:/etc/xdg:/etc/xdg
+# environment
+GTK_OVERLAY_SCROLLING = 0
+# makefile (from 'make/docker.mk', line 1)
+MAKEFILE_LIST :=  Makefile make/docker.mk
+# automatic
+@F = $(notdir $@)
+# 'override' directive
+GNUMAKEFLAGS := 
+# environment
+MAKELEVEL := 0
+# environment
+MANDATORY_PATH = /usr/share/gconf/xubuntu.mandatory.path
+# environment
+XDG_DATA_DIRS = /usr/share/xfce4:/usr/share/xubuntu:/usr/local/share:/usr/share:/var/lib/snapd/desktop:/usr/share
+# environment
+VSCODE_AMD_ENTRYPOINT = vs/workbench/api/node/extensionHostProcess
+# makefile (from 'Makefile', line 16)
+GOOS_OVERRIDE = 
+# makefile (from 'make/docker.mk', line 12)
+DOCKER_CLIENT_OS := linux
+# environment
+DBUS_SESSION_BUS_ADDRESS = unix:path=/run/user/1001/bus
+# makefile (from 'Makefile', line 71)
+VERSION := 0.21.0-6-gdb2ab6c3-dev
+# environment
+LESSOPEN = | /usr/bin/lesspipe %s
+# environment
+LC_NAME = de_DE.UTF-8
+# environment
+VSCODE_CWD = /home/devbox/mqtt-server
+# environment
+GOPROXY = https://proxy.golang.org,direct
+# environment
+XDG_SESSION_PATH = /org/freedesktop/DisplayManager/Session0
+# default
+MAKE_HOST := x86_64-pc-linux-gnu
+# makefile (from 'Makefile', line 18)
+RELEASE = ./.releases
+# environment
+PATH = /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/devbox/go/bin
+# environment
+GPG_AGENT_INFO = /run/user/1001/gnupg/S.gpg-agent:0:1
+# environment
+SESSION_MANAGER = local/devbox:@/tmp/.ICE-unix/1710,unix/devbox:/tmp/.ICE-unix/1710
+# environment
+XDG_RUNTIME_DIR = /run/user/1001
+# environment
+WINDOWID = 75497475
+# environment
+GOPATH = /home/devbox/go
+# environment
+XDG_MENU_PREFIX = xfce-
+# environment
+ELECTRON_RUN_AS_NODE = 1
+# makefile (from 'Makefile', line 89)
+LDFLAGS := -ldflags='-w -X "main.Version=0.21.0-6-gdb2ab6c3-dev" -X "main.BuildTime=2022-08-10 10:22 UTC"'
+# default
+.FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell archives jobserver output-sync check-symlink load
+# makefile (from 'Makefile', line 9)
+PKCS11_BINNAME = step-pkcs11-init
+# environment
+XDG_GREETER_DATA_DIR = /var/lib/lightdm-data/devbox
+# environment
+LS_COLORS = rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:
+# environment
+XDG_SESSION_DESKTOP = xubuntu
+# environment
+SSH_AUTH_SOCK = /run/user/1001/keyring/ssh
+# automatic
+%F = $(notdir $%)
+# environment
+DISPLAY = :0.0
+# makefile (from 'Makefile', line 17)
+OUTPUT_ROOT = output/
+# makefile (from 'Makefile', line 3)
+CLOUDKMS_BINNAME = step-cloudkms-init
+# makefile (from 'Makefile', line 5)
+AWSKMS_BINNAME = step-awskms-init
+# makefile (from 'make/docker.mk', line 84)
+DOCKER_BUILD = $Q docker build -t $(DOCKER_IMAGE_NAME):latest -f docker/Dockerfile.step-ca --build-arg BINPATH=$(DOCKER_OUTPUT)bin/$(BINNAME) .
+# environment
+PWD = /home/devbox/mqtt-server
+# environment
+QT_QPA_PLATFORMTHEME = gtk2
+# makefile (from 'make/docker.mk', line 53)
+define DOCKER_BUILDX
+	# $(1) -- Image Tag
+	# $(2) -- Push (empty is no push | --push will push to dockerhub)
+	docker buildx build . --progress plain -t $(DOCKER_IMAGE_NAME):$(1) -f docker/Dockerfile.step-ca --platform="$(DOCKER_PLATFORMS)" $(2)
+	echo -n "$(COSIGN_PWD)" | cosign sign -key /tmp/cosign.key -r $(DOCKER_IMAGE_NAME):$(1)
+
+endef
+# default
+.LOADED := 
+# environment
+XDG_SEAT = seat0
+# makefile (from 'Makefile', line 1)
+PKG = github.com/smallstep/certificates/cmd/step-ca
+# environment
+SSH_AGENT_PID = 1880
+# environment
+ORIGINAL_XDG_CURRENT_DESKTOP = XFCE
+# environment
+GTK_MODULES = gail:atk-bridge
+# environment
+GOMODCACHE = /home/devbox/go/pkg/mod
+# environment
+HOME = /home/devbox
+# environment
+LESSCLOSE = /usr/bin/lesspipe %s %s
+# environment
+VSCODE_CLI = 1
+# makefile (from 'Makefile', line 8)
+YUBIKEY_PKG = github.com/smallstep/certificates/cmd/step-yubikey-init
+# environment
+VSCODE_CODE_CACHE_PATH = /home/devbox/.config/Code/CachedData/92d25e35d9bf1a6b16f7d0758f25d48ace11e5b9
+# environment
+LOGNAME = devbox
+# environment
+APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = 1
+# makefile (from 'Makefile', line 72)
+DEB_VERSION := 0.21.0.6.gdb2ab6c3.dev
+# automatic
++F = $(notdir $+)
+# environment
+ELECTRON_NO_ATTACH_CONSOLE = 1
+# environment
+VSCODE_HANDLES_UNCAUGHT_ERRORS = true
+# automatic
+^D = $(patsubst %/,%,$(dir $^))
+# environment
+XDG_VTNR = 7
+# environment
+CLUTTER_BACKEND = x11
+# environment
+LC_TIME = de_DE.UTF-8
+# environment
+COLORTERM = truecolor
+# default
+MAKE = $(MAKE_COMMAND)
+# default
+MAKECMDGOALS := all
+# environment
+SHLVL = 1
+# environment
+XDG_SESSION_ID = c2
+# environment
+USER = devbox
+# environment
+LC_MONETARY = de_DE.UTF-8
+# makefile
+.DEFAULT_GOAL := all
+# environment
+XDG_CURRENT_DESKTOP = XFCE
+# makefile (from 'Makefile', line 2)
+BINNAME = step-ca
+# automatic
+%D = $(patsubst %/,%,$(dir $%))
+# environment
+LC_TELEPHONE = de_DE.UTF-8
+# default
+MAKE_COMMAND := make
+# environment
+OLDPWD = /home/devbox
+# makefile (from 'Makefile', line 169)
+INSTALL_PREFIX = /usr/
+# default
+.VARIABLES := 
+# automatic
+*F = $(notdir $*)
+# environment
+LANGUAGE = en_US
+# environment
+XDG_SEAT_PATH = /org/freedesktop/DisplayManager/Seat0
+# environment
+VSCODE_IPC_HOOK = /run/user/1001/vscode-32805f99-1.69.0-main.sock
+# environment
+PANEL_GDK_CORE_DEVICE_EVENTS = 0
+# makefile
+MAKEFLAGS = pqrR
+# environment
+MFLAGS = -pqrR
+# automatic
+*D = $(patsubst %/,%,$(dir $*))
+# makefile (from 'make/docker.mk', line 15)
+DOCKER_PLATFORMS = linux/amd64,linux/386,linux/arm,linux/arm64
+# automatic
++D = $(patsubst %/,%,$(dir $+))
+# environment
+GDK_BACKEND = x11
+# environment
+LC_PAPER = de_DE.UTF-8
+# environment
+NO_AT_BRIDGE = 1
+# environment
+QT_ACCESSIBILITY = 1
+# environment
+DEFAULTS_PATH = /usr/share/gconf/xubuntu.default.path
+# makefile (from 'make/docker.mk', line 83)
+DOCKER_MAKE = V=$V GOOS_OVERRIDE='GOOS=linux GOARCH=amd64' PREFIX=$(1) make $(1)bin/$(BINNAME)
+# 'override' directive
+.SHELLSTATUS := 0
+# default
+MAKEFILES := 
+# environment
+LC_NUMERIC = de_DE.UTF-8
+# automatic
+<F = $(notdir $<)
+# environment
+LC_MEASUREMENT = de_DE.UTF-8
+# makefile (from 'Makefile', line 88)
+DATE := 2022-08-10 10:22 UTC
+# makefile (from 'Makefile', line 90)
+GOFLAGS := CGO_ENABLED=0
+# makefile (from 'make/docker.mk', line 16)
+DOCKER_IMAGE_NAME = smallstep/step-ca
+# environment
+LC_ALL = C
+# makefile (from 'Makefile', line 6)
+AWSKMS_PKG = github.com/smallstep/certificates/cmd/step-awskms-init
+# makefile (from 'Makefile', line 67)
+PUSHTYPE := branch
+# automatic
+^F = $(notdir $^)
+# default
+ 
+SUFFIXES := 
+# makefile (from 'Makefile', line 10)
+PKCS11_PKG = github.com/smallstep/certificates/cmd/step-pkcs11-init
+# environment
+CHROME_DESKTOP = code-url-handler.desktop
+# default
+.INCLUDE_DIRS = /usr/include /usr/local/include /usr/include
+# environment
+LC_IDENTIFICATION = de_DE.UTF-8
+# makefile (from 'Makefile', line 4)
+CLOUDKMS_PKG = github.com/smallstep/certificates/cmd/step-cloudkms-init
+# default
+.RECIPEPREFIX := 
+# environment
+LC_ADDRESS = de_DE.UTF-8
+# makefile (from 'Makefile', line 7)
+YUBIKEY_BINNAME = step-yubikey-init
+# environment
+LANG = C
+# environment
+TERM = xterm-256color
+# environment
+VSCODE_PID = 14510
+# variable set hash-table stats:
+# Load=143/1024=14%, Rehash=0, Collisions=38/262=15%
+
+# Pattern-specific Variable Values
+
+# No pattern-specific variable values.
+
+# Directories
+
+# . (device 2053, inode 789749): 48 files, no impossibilities.
+
+# 48 files, no impossibilities in 1 directories.
+
+# Implicit Rules
+
+bootstra%:
+#  recipe to execute (from 'Makefile', line 31):
+	# Using a released version of golangci-lint to take into account custom replacements in their go.mod
+	# $Q curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.42.0
+	$Q go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.46.2
+
+# 1 implicit rules, 0 (0.0%) terminal.
+
+# Files
+
+# Not a target:
+make/docker.mk:
+#  Implicit rule search has been done.
+#  Last modified 2022-07-12 15:12:25.285486708
+#  File has been updated.
+#  Successfully updated.
+
+docker-prepare:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'make/docker.mk', line 19):
+	# Ensure, we can build for ARM architecture
+	[ -f /proc/sys/fs/binfmt_misc/qemu-arm ] || docker run --rm --privileged linuxkit/binfmt:v0.8-amd64
+	# Register buildx builder
+	mkdir -p $$HOME/.docker/cli-plugins
+	test -f $$HOME/.docker/cli-plugins/docker-buildx || \
+		(wget -q -O $$HOME/.docker/cli-plugins/docker-buildx https://github.com/docker/buildx/releases/download/v0.4.1/buildx-v0.4.1.$(DOCKER_CLIENT_OS)-amd64 && \
+		chmod +x $$HOME/.docker/cli-plugins/docker-buildx)
+	docker buildx create --use --name mybuilder --platform="$(DOCKER_PLATFORMS)" || true
+
+simple: build
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+
+docker-login:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'make/docker.mk', line 45):
+	$Q docker login -u="$(DOCKER_USERNAME)" -p="$(DOCKER_PASSWORD)"
+
+docker-branch:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+
+all: lint test build
+#  Phony target (prerequisite of .PHONY).
+#  Command line target.
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has been updated.
+#  Needs to be updated (-q is set).
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/5=0%
+
+lintcgo:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 161):
+	$Q LOG_LEVEL=error golangci-lint run --timeout=30m
+
+bin/step-pkcs11-init: download
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 115):
+	$Q mkdir -p $(@D)
+	$Q $(GOOS_OVERRIDE) $(GOFLAGS) go build -v -o $(PREFIX)bin/$(PKCS11_BINNAME) $(LDFLAGS) $(PKCS11_PKG)
+
+.PHONY: all ci bootstra% docker-prepare docker-login docker-branch docker-master docker-release-candidate docker-release docker-dev download build simple generate test testcgo integrate integration fmt lint lintcgo install uninstall clean run changelog debian distclean docker-artifacts
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+bin/step-awskms-init: download
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 107):
+	$Q mkdir -p $(@D)
+	$Q $(GOOS_OVERRIDE) $(GOFLAGS) go build -v -o $(PREFIX)bin/$(AWSKMS_BINNAME) $(LDFLAGS) $(AWSKMS_PKG)
+
+bootstra%:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+
+distclean: clean
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+
+integration: bin/step-ca
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 146):
+	$Q $(GOFLAGS) go test -tags=integration ./integration/...
+
+# Not a target:
+.SUFFIXES:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+uninstall:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 177):
+	$Q rm -f $(DESTDIR)$(INSTALL_PREFIX)/bin/$(BINNAME)
+	$Q rm -f $(DESTDIR)$(INSTALL_PREFIX)/bin/$(CLOUDKMS_BINNAME)
+	$Q rm -f $(DESTDIR)$(INSTALL_PREFIX)/bin/$(AWSKMS_BINNAME)
+
+# Not a target:
+Makefile:
+#  Implicit rule search has been done.
+#  Last modified 2022-07-12 17:24:19.134285558
+#  File has been updated.
+#  Successfully updated.
+
+test:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 136):
+	$Q $(GOFLAGS) go test -short -coverprofile=coverage.out ./...
+
+build: bin/step-ca bin/step-cloudkms-init bin/step-awskms-init bin/step-yubikey-init bin/step-pkcs11-init
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 96):
+	@echo "Build Complete!"
+
+docker-release: docker-prepare docker-login
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'make/docker.mk', line 73):
+	$(call DOCKER_BUILDX,latest,--push)
+	$(call DOCKER_BUILDX,$(VERSION),--push)
+
+docker-master:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+
+generate:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 128):
+	$Q go generate ./...
+
+bin/step-ca: download
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 99):
+	$Q mkdir -p $(@D)
+	$Q $(GOOS_OVERRIDE) $(GOFLAGS) go build -v -o $(PREFIX)bin/$(BINNAME) $(LDFLAGS) $(PKG)
+
+# Not a target:
+.DEFAULT:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+testcgo:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 139):
+	$Q go test -short -coverprofile=coverage.out ./...
+
+ci: testcgo build
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+
+docker-release-candidate: docker-prepare docker-login
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'make/docker.mk', line 69):
+	$(call DOCKER_BUILDX,$(VERSION),--push)
+
+bin/step-cloudkms-init: download
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 103):
+	$Q mkdir -p $(@D)
+	$Q $(GOOS_OVERRIDE) $(GOFLAGS) go build -v -o $(PREFIX)bin/$(CLOUDKMS_BINNAME) $(LDFLAGS) $(CLOUDKMS_PKG)
+
+run:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 211):
+	$Q go run cmd/step-ca/main.go $(shell step path)/config/ca.json
+
+clean:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 189):
+	$Q rm -f bin/$(BINNAME)
+	$Q rm -f bin/$(CLOUDKMS_BINNAME)
+	$Q rm -f bin/$(AWSKMS_BINNAME)
+	$Q rm -f bin/$(YUBIKEY_BINNAME)
+	$Q rm -f bin/$(PKCS11_BINNAME)
+
+download:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+ 
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 93):
+	$Q go mod download
+
+bin/step-yubikey-init: download
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 111):
+	$Q mkdir -p $(@D)
+	$Q $(GOOS_OVERRIDE) $(GOFLAGS) go build -v -o $(PREFIX)bin/$(YUBIKEY_BINNAME) $(LDFLAGS) $(YUBIKEY_PKG)
+
+fmt:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 155):
+	$Q gofmt -l -s -w $(SRC)
+
+lint:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  Implicit/static pattern stem: ''
+#  File does not exist.
+#  File has been updated.
+#  Needs to be updated (-q is set).
+# automatic
+# @ := lint
+# automatic
+# % := 
+# automatic
+# * := 
+# automatic
+# + := 
+# automatic
+# | := 
+# automatic
+# < := 
+# automatic
+# ^ := 
+# automatic
+# ? := 
+# variable set hash-table stats:
+# Load=8/32=25%, Rehash=0, Collisions=1/13=8%
+#  recipe to execute (from 'Makefile', line 158):
+	$Q golangci-lint run --timeout=30m
+
+integrate: integration
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+
+docker-dev: docker/Dockerfile.step-ca
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'make/docker.mk', line 87):
+	mkdir -p $(DOCKER_OUTPUT)
+	$(call DOCKER_MAKE,$(DOCKER_OUTPUT),step-ca)
+	$(call DOCKER_BUILD)
+
+changelog:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 220):
+	$Q echo "step-ca ($(DEB_VERSION)) unstable; urgency=medium" > debian/changelog
+	$Q echo >> debian/changelog
+	$Q echo "  * See https://github.com/smallstep/certificates/releases" >> debian/changelog
+	$Q echo >> debian/changelog
+	$Q echo " -- Smallstep Labs, Inc. <techadmin@smallstep.com>  $(shell date -uR)" >> debian/changelog
+
+debian: changelog
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 227):
+	$Q mkdir -p $(RELEASE); \
+	OUTPUT=../step-ca*.deb; \
+	rm $$OUTPUT; \
+	dpkg-buildpackage -b -rfakeroot -us -uc && cp $$OUTPUT $(RELEASE)/
+
+docker-artifacts: docker-branch
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+
+# Not a target:
+docker/Dockerfile.step-ca:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+install: bin/step-ca bin/step-cloudkms-init bin/step-awskms-init
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 172):
+	$Q install -D $(PREFIX)bin/$(BINNAME) $(DESTDIR)$(INSTALL_PREFIX)bin/$(BINNAME)
+	$Q install -D $(PREFIX)bin/$(CLOUDKMS_BINNAME) $(DESTDIR)$(INSTALL_PREFIX)bin/$(CLOUDKMS_BINNAME)
+	$Q install -D $(PREFIX)bin/$(AWSKMS_BINNAME) $(DESTDIR)$(INSTALL_PREFIX)bin/$(AWSKMS_BINNAME)
+
+# files hash-table stats:
+# Load=40/1024=4%, Rehash=0, Collisions=4/136=3%
+# VPATH Search Paths
+
+# No 'vpath' search paths.
+
+# No general ('VPATH' variable) search path.
+
+# strcache buffers: 1 (0) / strings = 88 / storage = 845 B / avg = 9 B
+# current buf: size = 8162 B / used = 845 B / count = 88 / avg = 9 B
+
+# strcache performance: lookups = 217 / hit rate = 59%
+# hash-table stats:
+# Load=88/8192=1%, Rehash=0, Collisions=1/217=0%
+# Finished Make data base on Wed Aug 10 12:22:55 2022
+
+ 
