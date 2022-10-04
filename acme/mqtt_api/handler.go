@@ -18,6 +18,7 @@ import (
 	"github.com/smallstep/certificates/api/render"
 	"github.com/smallstep/certificates/authority"
 	"github.com/smallstep/certificates/authority/provisioner"
+	"go.step.sm/crypto/pemutil"
 	"gopkg.in/square/go-jose.v2"
 )
 
@@ -36,6 +37,8 @@ func (c *Clock) Now() time.Time {
 var clock Clock
 
 var acmeDB acme.DB
+
+var key x509.PrivateKey
 
 type payloadInfo struct {
 	value       []byte
@@ -145,17 +148,30 @@ type Path struct {
 var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 
 	var path Path
-	// get json out of msg
 	json.Unmarshal(msg.Payload(), &path)
 	var json []byte
+	if path.Path == "/acme/acme/directory" {
+		cert, err := pemutil.ReadCertificate("authority/testdata/certs/intermediate_ca.crt")
+		if err != nil {
+			fmt.Println("error reading test intermediate certificate %s", err)
+		}
+		key, err := pemutil.Read("authority/testdata/secrets/intermediate_ca_key", pemutil.WithPassword([]byte("pass")))
+		pemutil.ParseKey()
+
+		opts = append(pemutil.WithPassword([]byte("pass")))
+		if err != nil {
+			fmt.Println("error reading private key of intermediate certificate %s", err)
+		}
+		json = GetDirectoryMQTT(crt)
+	}
+
+	pload := Decrypt(msg.Payload(), key)
 	switch {
-	case path.Path == "/acme/acme/directory":
-		json = GetDirectoryMQTT()
 	case path.Path == "/acme/acme/new-nonce":
 		json = AddNonceMQTT(json)
 	case path.Path == "/acme/acme/new-account":
 		var payload *payloadByJWKOrKID
-		payload, err := extractpayloadByJWKMQTT(msg)
+		payload, err := extractpayloadByJWKMQTT(pload)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -163,7 +179,7 @@ var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 		json = AddNonceMQTT(json)
 	case path.Path == "/acme/acme/new-order":
 		var payload *payloadByJWKOrKID
-		payload, err := extractPayloadByKidMQTT(msg)
+		payload, err := extractPayloadByKidMQTT(pload)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -174,7 +190,7 @@ var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 		json = AddNonceMQTT(json)
 	case strings.Contains(path.Path, "/acme/authz"):
 		var payload *payloadByJWKOrKID
-		payload, err := extractPayloadByKidMQTT(msg)
+		payload, err := extractPayloadByKidMQTT(pload)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -186,7 +202,7 @@ var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 		json = AddNonceMQTT(json)
 	case strings.Contains(path.Path, "/acme/challenge"):
 		var payload *payloadByJWKOrKID
-		payload, err := extractPayloadByKidMQTT(msg)
+		payload, err := extractPayloadByKidMQTT(pload)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -201,7 +217,7 @@ var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 		json = AddNonceMQTT(json)
 	case strings.Contains(path.Path, "finalize"):
 		var payload *payloadByJWKOrKID
-		payload, err := extractPayloadByKidMQTT(msg)
+		payload, err := extractPayloadByKidMQTT(pload)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -215,7 +231,7 @@ var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 		json = AddNonceMQTT(json)
 	case strings.Contains(path.Path, "/acme/cert"):
 		var payload *payloadByJWKOrKID
-		payload, err := extractPayloadByKidMQTT(msg)
+		payload, err := extractPayloadByKidMQTT(pload)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -234,7 +250,6 @@ var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 	fmt.Printf("json after append: %s\n", string(json))
 	//publish json
 	PublishMQTTMessage(client, json, "/acme/client")
-
 }
 
 func extractpayloadByJWKMQTT(msg MQTT.Message) (*payloadByJWKOrKID, error) {
@@ -379,6 +394,7 @@ type Directory struct {
 	RevokeCert string `json:"revokeCert"`
 	KeyChange  string `json:"keyChange"`
 	Meta       Meta   `json:"meta"`
+	Cert       []byte `json:"cert"`
 }
 
 // ToLog enables response logging for the Directory type.
@@ -415,8 +431,9 @@ func GetDirectory(w http.ResponseWriter, r *http.Request) {
 
 // GetDirectory is the ACME resource for returning a directory configuration
 // for client configuration.
-func GetDirectoryMQTT() []byte {
+func GetDirectoryMQTT(crt *x509.Certificate) []byte {
 	fmt.Printf("GetDirectoryMQTT\n")
+
 	// initialize json
 	json, err := json.Marshal(&Directory{
 		NewNonce:   "/acme/acme/new-nonce",
@@ -424,6 +441,7 @@ func GetDirectoryMQTT() []byte {
 		NewOrder:   "/acme/acme/new-order",
 		RevokeCert: "/acme/acme/revoke-cert",
 		KeyChange:  "/acme/acme/key-change",
+		Cert:       crt.Raw,
 	})
 
 	if err != nil {

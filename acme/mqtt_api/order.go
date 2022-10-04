@@ -476,25 +476,20 @@ func FinalizeOrderMQTT(db acme.DB, acc *acme.Account, payload []byte, ordID stri
 		return nil, acme.WrapError(acme.ErrorMalformedType, err,
 			"failed to unmarshal finalize-order request payload")
 	}
-	fmt.Printf("Test1")
 	if err := fr.Validate(); err != nil {
 		return nil, err
 	}
-	fmt.Printf("Test2")
 	o, err := db.GetOrder(nil, ordID)
 	if err != nil {
 		return nil, acme.WrapErrorISE(err, "error retrieving order")
 	}
-	fmt.Printf("Test3")
 	if acc.ID != o.AccountID {
 		return nil, acme.NewError(acme.ErrorUnauthorizedType,
 			"account '%s' does not own order '%s'", acc.ID, o.ID)
 	}
-	fmt.Printf("Test4")
 	if err = o.FinalizeMQTT(db, fr.csr); err != nil {
 		return nil, fmt.Errorf("error finalizing order %s\n", err)
 	}
-	fmt.Printf("Test5")
 
 	linkOrderMQTT(o)
 

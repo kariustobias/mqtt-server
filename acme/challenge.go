@@ -1,11 +1,14 @@
 package acme
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/sha256"
 	"crypto/subtle"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/hex"
@@ -19,6 +22,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fxamacker/cbor/v2"
+	"github.com/google/go-attestation/attest"
+	"github.com/google/go-attestation/oid"
+	"github.com/google/go-tpm/tpm2"
 	"go.step.sm/crypto/jose"
 )
 
@@ -46,6 +53,11 @@ type Challenge struct {
 	ValidatedAt     string        `json:"validated,omitempty"`
 	URL             string        `json:"url"`
 	Error           *Error        `json:"error,omitempty"`
+}
+
+type AttestationObject struct {
+	Format       string                 `json:"fmt"`
+	AttStatement map[string]interface{} `json:"attStmt,omitempty"`
 }
 
 // ToLog enables response logging.
@@ -313,8 +325,87 @@ func dns01Validate(ctx context.Context, ch *Challenge, db DB, jwk *jose.JSONWebK
 	return nil
 }
 
-func deviceAttest01ValidateMQTT(ch *Challenge, db DB, jwk *jose.JSONWebKey) error {
+func deviceAttest01ValidateMQTT(ch *Challenge, db DB, jwk *jose.JSONWebKey, payload []byte) error {
 	fmt.Printf("deviceAttest01ValidateMQTT\n")
+
+	att := AttestationObject{}
+	if err := cbor.Unmarshal(p.AttStmt, &att); err != nil {
+		return WrapErrorISE(err, "error unmarshalling CBOR")
+	}
+
+	params := &attest.CertificationParameters{
+		Public:            att.AttStatement["pubArea"].([]byte),
+		CreateAttestation: att.AttStatement["certInfo"].([]byte),
+		CreateSignature:   att.AttStatement["sig"].([]byte),
+	}
+
+	x5c, x509present := att.AttStatement["x5c"].([]interface{})
+	if !x509present {
+		return errors.New("x5c not present")
+	}
+
+	akCertBytes, valid := x5c[0].([]byte)
+	if !valid {
+		return storeError(nil, db, ch, true, NewError(ErrorRejectedIdentifierType,
+			"error getting certificate from x5c cert chain"))
+	}
+
+	akCert, err := x509.ParseCertificate(akCertBytes)
+	if err != nil {
+		return WrapErrorISE(err, "error parsing AK certificate")
+	}
+
+	if err := params.Verify(attest.VerifyOpts{Public: akCert.PublicKey, Hash: crypto.SHA256}); err != nil {
+		return storeError(nil, db, ch, true, NewError(ErrorRejectedIdentifierType,
+			"params.Verify failed: %v", err))
+	}
+
+	attData, err := tpm2.DecodeAttestationData(params.CreateAttestation)
+	if err != nil {
+		return WrapErrorISE(err, "error decoding attestation data")
+	}
+
+	keyAuth, err := KeyAuthorization(ch.Token, jwk)
+	if err != nil {
+		return err
+	}
+
+	hashedKeyAuth := sha256.Sum256([]byte(keyAuth))
+
+	if !bytes.Equal(attData.ExtraData, hashedKeyAuth[:]) {
+		return storeError(nil, db, ch, true, NewError(ErrorRejectedIdentifierType,
+			"key authorization mismatch"))
+	}
+
+	var sanExt pkix.Extension
+	for _, ext := range akCert.Extensions {
+		if ext.Id.Equal(oid.SubjectAltName) {
+			sanExt = ext
+		}
+	}
+
+	if sanExt.Value == nil {
+		return storeError(nil, db, ch, true, NewError(ErrorRejectedIdentifierType,
+			"akCert missing subjectAltName"))
+	}
+
+	san, err := x509ext.ParseSubjectAltName(sanExt)
+	if err != nil {
+		return storeError(nil, db, ch, true, NewError(ErrorRejectedIdentifierType,
+			"failed to parse subjectAltName"))
+	}
+
+	if len(san.PermanentIdentifiers) != 1 {
+		return storeError(nil, db, ch, true, NewError(ErrorRejectedIdentifierType,
+			"subjectAltName doesn't contain a PermanentIdentifier"))
+	}
+
+	wantPermID := san.PermanentIdentifiers[0]
+	if wantPermID.IdentifierValue != ch.Value {
+		return storeError(nil, db, ch, true, NewError(ErrorRejectedIdentifierType,
+			"identifier from certificate and challenge do not match"))
+	}
+
 	ch.Status = StatusValid
 	ch.Error = nil
 	ch.ValidatedAt = clock.Now().Format(time.RFC3339)
